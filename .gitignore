@@ -1,0 +1,53 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CEO-GPT .gitignore — was NIE auf GitHub landen darf
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# --- Geheim: API-Keys und Zugänge ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+service-account*.json
+google-credentials*.json
+
+# --- Persönliche Daten und Importe ---
+# Was du in context/import/ reinwirfst, bleibt lokal.
+context/import/*
+!context/import/.gitkeep
+
+# --- Ergebnisse und Zwischenstände ---
+# Optional. Wenn du outputs/ doch mit hochladen willst, diese Zeile rausnehmen.
+outputs/
+shares/
+
+# --- System-Müll (Windows / macOS) ---
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# --- Editor und IDE ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- Python-Schrott (falls Skripte laufen) ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# --- Node-Schrott (falls Skripte laufen) ---
+node_modules/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Temporäre Dateien ---
+*.tmp
+*.temp
