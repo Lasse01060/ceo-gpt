@@ -1,13 +1,16 @@
-# ═══════════════════════════════════════════════════════════════════════════════
-# CEO-GPT .gitignore — was NIE auf GitHub landen darf
-# ═══════════════════════════════════════════════════════════════════════════════
+# ============================================================
+# CEO-GPT Arbeitsplatz, .gitignore
+# Dateien und Ordner, die nie zu Git wandern sollen.
+# Schützt deine Secrets, verhindert Bloat und hält das Repo sauber.
+# ============================================================
 
-# --- Geheim: API-Keys und Zugänge ---
+# --- Credentials (kritisch, niemals committen) ---
 .env
 .env.*
 !.env.example
-*.key
+credentials/
 *.pem
+*.key
 credentials.json
 service-account*.json
 google-credentials*.json
@@ -22,18 +25,14 @@ context/import/*
 outputs/
 shares/
 
-# --- System-Müll (Windows / macOS) ---
-Thumbs.db
-desktop.ini
-.DS_Store
+# --- Daten (werden generiert, reproduzierbar aus Sammel-Scripts) ---
+data/*.db
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+data/*.log
 
-# --- Editor und IDE ---
-.vscode/
-.idea/
-*.swp
-*~
-
-# --- Python-Schrott (falls Skripte laufen) ---
+# --- Python ---
 __pycache__/
 *.pyc
 *.pyo
@@ -41,13 +40,29 @@ __pycache__/
 venv/
 *.egg-info/
 
-# --- Node-Schrott (falls Skripte laufen) ---
+# --- Node (falls genutzt) ---
 node_modules/
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- Windows ---
+Thumbs.db
+desktop.ini
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- Temp-Dateien ---
+*.tmp
+*.temp
+*.bak
 
 # --- Logs ---
 *.log
 logs/
-
-# --- Temporäre Dateien ---
-*.tmp
-*.temp
