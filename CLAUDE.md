@@ -66,6 +66,7 @@ Wir bauen den Mitarbeiter in Teilen auf. Jeder Teil ist für sich nützlich, und
 .
 ├── CLAUDE.md                # Diese Datei, Anleitung für deinen Mitarbeiter
 ├── .env                     # API-Keys und Zugänge (nie committen)
+├── .gitignore               # Schutz-Liste: was nicht hochgeladen wird
 ├── .claude/
 │   └── commands/            # Slash-Befehle die dein Mitarbeiter ausführt
 │       ├── prime.md         # /prime: Sitzung starten
@@ -165,10 +166,19 @@ Geführtes Interview, das jede wiederkehrende Aufgabe in deinem Business kartier
 
 **Zum ersten Mal hier?**
 
-1. Sicher das CEO-GPT ab. Lauf `/install module-installs/absicherung`. Versionskontrolle, Backup im Internet, Doku-System. Das ist die Basis.
+1. ~~Sicher das CEO-GPT ab.~~ **Erledigt.** Git läuft lokal, Backup auf GitHub: https://github.com/Lasse01060/ceo-gpt (privat).
 2. Richte den Kontext ein. Lauf `/install module-installs/kontext`. Damit bekommt dein Mitarbeiter sein Gehirn.
 3. Wenn der Kontext steht, lauf `/prime`. Prüf, dass dein Mitarbeiter dein Business verstanden hat.
 4. Bau weiter aus, in dieser Reihenfolge: Daten, Intelligenz, Stimme, Automatisierung, Wachstum.
+
+**Backup pflegen:** Nach grösseren Änderungen Schnappschuss machen und hochladen, mit zwei Befehlen im CEO-GPT-Ordner:
+
+```
+git add . && git commit -m "kurze beschreibung was sich geaendert hat"
+git push
+```
+
+Wenn du das vergisst, ist das ok — beim nächsten Mal eben. Wichtig ist nur, dass dein Stand regelmässig auf GitHub landet, nicht dass jeder kleine Schritt sofort hochgeht.
 
 **Wiederkommer?** `/prime` am Anfang jeder Sitzung.
 
