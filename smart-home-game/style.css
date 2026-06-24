@@ -1,0 +1,296 @@
+/* ============================================================
+   Smart Home — Sprich mit deinem Haus
+   Oberfläche (UI). Das 3D-Haus selbst steckt in main.js.
+   ============================================================ */
+
+:root {
+  --bg: #0d1018;
+  --card: rgba(20, 25, 38, 0.82);
+  --card-solid: #161b2b;
+  --text: #f3f6ff;
+  --muted: #9aa6c4;
+  --accent: #5b8cff;
+  --accent-2: #7af2c9;
+  --warn: #ffd166;
+  --danger: #ff6b6b;
+  --radius: 20px;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+#app { position: fixed; inset: 0; }
+
+canvas { display: block; position: fixed; inset: 0; z-index: 0; }
+
+.hidden { display: none !important; }
+
+/* ---------- Kopfzeile ---------- */
+#hud-top {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  max-width: calc(100vw - 24px);
+}
+
+#station-meta { display: flex; flex-direction: column; line-height: 1.15; }
+#station-label { font-size: 12px; letter-spacing: 0.5px; color: var(--muted); text-transform: uppercase; }
+#station-title { font-size: 17px; font-weight: 700; }
+
+.mic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mic-chip .mic-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #555f7a; flex: 0 0 auto;
+}
+.mic-chip.listening { color: var(--accent-2); background: rgba(122, 242, 201, 0.12); }
+.mic-chip.listening .mic-dot { background: var(--accent-2); animation: pulse 1.1s infinite; }
+.mic-chip.denied { color: var(--warn); }
+.mic-chip.denied .mic-dot { background: var(--warn); }
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(122, 242, 201, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(122, 242, 201, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(122, 242, 201, 0); }
+}
+
+/* ---------- "Gehört"-Einblendung ---------- */
+#heard-toast {
+  position: fixed;
+  top: calc(max(14px, env(safe-area-inset-top)) + 74px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 28;
+  padding: 8px 18px;
+  background: rgba(91, 140, 255, 0.18);
+  border: 1px solid rgba(91, 140, 255, 0.4);
+  border-radius: 999px;
+  font-size: 15px;
+  color: #dbe6ff;
+  white-space: nowrap;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#heard-toast.good { background: rgba(122, 242, 201, 0.2); border-color: rgba(122, 242, 201, 0.5); color: #d7fff1; }
+
+/* ---------- Aufgaben-Karte ---------- */
+#prompt-card {
+  position: fixed;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 30;
+  width: min(620px, calc(100vw - 28px));
+  padding: 20px 24px 18px;
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+#prompt-hint { font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+#prompt-command {
+  font-size: clamp(26px, 5vw, 40px);
+  font-weight: 800;
+  margin: 4px 0 6px;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(91, 140, 255, 0.35);
+}
+#prompt-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+
+#prompt-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: 14px;
+  padding: 13px 22px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease, background 0.15s ease;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: linear-gradient(135deg, var(--accent), #7a6cff); color: #fff; }
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-ghost { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.btn-mini { background: rgba(255, 255, 255, 0.1); color: var(--text); padding: 7px 14px; font-size: 13px; border-radius: 10px; }
+
+.physics-toggle {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.physics-toggle:active { transform: scale(0.97); }
+
+/* ---------- Physik-Panel ---------- */
+#physics-panel {
+  position: fixed;
+  top: 50%;
+  right: max(16px, env(safe-area-inset-right));
+  transform: translateY(-50%);
+  z-index: 32;
+  width: min(360px, calc(100vw - 28px));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 22px 22px 24px;
+  background: var(--card-solid);
+  border: 1px solid rgba(122, 242, 201, 0.25);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.physics-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+#physics-title { margin: 0; font-size: 20px; color: var(--accent-2); }
+#physics-text { margin: 0; font-size: 16px; line-height: 1.55; color: #e4ebff; }
+.physics-formula {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(122, 242, 201, 0.08);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-size: 15px;
+  color: #d7fff1;
+  white-space: pre-line;
+}
+.physics-formula:empty { display: none; }
+
+/* ---------- Startbildschirm ---------- */
+#start-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(1200px 700px at 70% -10%, rgba(91, 140, 255, 0.28), transparent 60%),
+    radial-gradient(900px 600px at 0% 110%, rgba(122, 242, 201, 0.18), transparent 55%),
+    linear-gradient(160deg, #0b0f1a, #131a2e);
+}
+.start-inner { width: min(640px, 100%); text-align: left; }
+.start-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(91, 140, 255, 0.18);
+  border: 1px solid rgba(91, 140, 255, 0.4);
+  color: #cfe0ff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 18px;
+}
+.start-inner h1 { font-size: clamp(34px, 7vw, 58px); line-height: 1.05; margin: 0 0 16px; font-weight: 900; }
+.start-inner h1 .accent {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.start-lead { font-size: clamp(16px, 2.4vw, 19px); color: #cdd6ef; line-height: 1.55; margin: 0 0 18px; max-width: 540px; }
+.start-list { list-style: none; padding: 0; margin: 0 0 26px; display: grid; gap: 8px; }
+.start-list li { font-size: 16px; color: #e6ecff; }
+.btn-start {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #08111e;
+  font-size: 20px;
+  padding: 16px 34px;
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(91, 140, 255, 0.45);
+}
+.start-foot { margin: 16px 0 0; font-size: 13px; color: var(--muted); }
+
+/* ---------- Laden ---------- */
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 15px;
+}
+.spinner {
+  width: 42px; height: 42px;
+  border: 4px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Hinweisbanner ---------- */
+#notice {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  max-width: min(620px, calc(100vw - 24px));
+  padding: 12px 18px;
+  background: rgba(255, 209, 102, 0.16);
+  border: 1px solid rgba(255, 209, 102, 0.5);
+  border-radius: 14px;
+  color: #ffe9b8;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.45;
+}
+
+/* ---------- Querformat-Hinweis auf schmalen Geräten ---------- */
+@media (max-width: 820px) and (orientation: portrait) {
+  #physics-panel { top: auto; bottom: calc(env(safe-area-inset-bottom) + 230px); transform: none; left: 50%; right: auto; transform: translateX(-50%); }
+}

@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-06-24
+
+### Smart-Home-Spiel für Physik-Präsentation
+
+- Begehbares 3D-Smart-Home als Web-Spiel gebaut (`smart-home-game/`), läuft im Browser auf dem iPad
+- Geführte Kamera-Tour im Tutorial-Stil: Kamera fährt von Raum zu Raum und zeigt das Sprach-Kommando an
+- Sprachsteuerung über die Web Speech API (Deutsch), mit Tipp-Knopf als Sicherheitsnetz
+- Smart-Home-Effekte: Licht an, Wände wechseln die Farbe, Induktionsküche, Wäsche-Roboter, selbstregelnde Heizung
+- Zu jeder Station eine kurze Physik-Erklärung (LED/Photon, Wellenlänge/Farbe, Induktion, Lorentzkraft, Thermodynamik)
+- Three.js r160 lokal ins Projekt gelegt (`vendor/`), damit es auch ohne externes CDN läuft (Schul-WLAN)
+
 ## 2026-05-19
 
 ### Erstes Setup: Absicherung installiert
