@@ -51,7 +51,7 @@ function initThree() {
   scene.fog = new THREE.Fog(0x10182b, 22, 46);
 
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-  camera.position.set(0.5, 5.5, 14);
+  camera.position.set(3.0, 5.2, 14.5);
 
   // Grundlicht, damit das Haus auch bei "Licht aus" sichtbar ist
   scene.add(new THREE.HemisphereLight(0xcdd8ff, 0x202838, 0.85));
@@ -133,6 +133,7 @@ function roundRect(ctx, x, y, w, h, r) {
    ============================================================ */
 const world = {
   lamps: [],        // Deckenlampen + Stehlampe (gehen bei "Licht an" an)
+  door: null,
   featureWall: null,
   stove: null,
   washer: null,
@@ -169,6 +170,7 @@ function buildHouse() {
   buildLaundry();
   buildHeating();
   buildLamps();
+  buildDoor();
 
   // Raum-Schilder zur Orientierung
   textSprite('Wohnzimmer', { x: -4, y: 2.9, z: 4.6, scale: 0.9 });
@@ -177,6 +179,31 @@ function buildHouse() {
   textSprite('Klima', { x: 4, y: 2.9, z: -1.2, scale: 0.9 });
 
   scene.add(house);
+}
+
+/* ---------- Eingangstür (vorne, öffnet sich beim Start) ---------- */
+function buildDoor() {
+  const g = new THREE.Group();
+  const zf = 6;                                    // Türebene = offene Vorderseite
+  // Rahmen: zwei Pfosten + Sturz
+  box(0.22, 2.55, 0.28, 0xb89066, { x: -1.0, y: 1.27, z: zf, parent: g });
+  box(0.22, 2.55, 0.28, 0xb89066, { x: 1.0, y: 1.27, z: zf, parent: g });
+  box(2.4, 0.25, 0.28, 0xb89066, { x: 0, y: 2.5, z: zf, parent: g });
+  // Schild über der Tür + Fußmatte
+  textSprite('Smart Home', { x: 0, y: 3.0, z: zf, scale: 0.85, color: '#dbe6ff', parent: g });
+  box(1.5, 0.04, 0.8, 0x2b3142, { x: 0, y: 0.02, z: zf + 0.7, parent: g });
+  // Türblatt mit Scharnier links (Pivot sitzt auf der Scharnierkante)
+  const pivot = new THREE.Group();
+  pivot.position.set(-0.85, 1.2, zf);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.55, 2.2, 0.08), mat(0x6f4a2c, { rough: 0.6 }));
+  panel.position.set(0.78, 0, 0);
+  pivot.add(panel);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 10), mat(0xf0c75e, { metal: 0.8, rough: 0.3 }));
+  handle.position.set(1.42, 0, 0.09);
+  pivot.add(handle);
+  g.add(pivot);
+  house.add(g);
+  world.door = { pivot };
 }
 
 /* ---------- Wohnzimmer (vorne links) ---------- */
@@ -334,6 +361,7 @@ function buildLamps() {
    3) Zustand + Animationen
    ============================================================ */
 const state = {
+  door: 0, doorTarget: 0,
   lights: 0, lightsTarget: 0,
   stove: 0, stoveTarget: 0,
   heat: 0, heatTarget: 0,
@@ -380,6 +408,10 @@ function damp(cur, target, lambda, dt) {
 }
 
 function updateWorld(dt, time) {
+  // Eingangstür
+  state.door = damp(state.door, state.doorTarget, 3, dt);
+  if (world.door) world.door.pivot.rotation.y = -1.85 * state.door; // schwingt nach außen auf
+
   // Licht
   state.lights = damp(state.lights, state.lightsTarget, 4, dt);
   for (const l of world.lamps) {
@@ -539,11 +571,24 @@ let cycleIdx = 0;
 
 const stations = [
   {
+    title: 'Eingang',
+    hint: 'Sage laut:',
+    command: '„Tür auf"',
+    keywords: ['tür', 'tur', 'auf', 'öffne', 'öffnen', 'offne', 'hallo', 'eintreten', 'start', 'los'],
+    camPos: [1.6, 1.8, 12.2], camLook: [0, 1.45, 6.2], camDur: 2.6,
+    action: () => { state.doorTarget = 1; },
+    physics: {
+      title: 'Automatische Tür: Sensor & Motor',
+      text: 'Smarte Türen öffnen von selbst. Ein Sensor sendet Infrarot- oder Ultraschall-Wellen aus und misst, wie lange ihr Echo zurückbraucht — daraus berechnet er deinen Abstand und merkt, dass du näher kommst. Dann öffnet ein Elektromotor die Tür. Genau wie gleich deine Stimme: erst misst ein Sensor etwas Physikalisches, dann folgt die Aktion.',
+      formula: 'Abstand = (v · t) / 2\n(v = Wellengeschwindigkeit, t = Echo-Laufzeit)',
+    },
+  },
+  {
     title: 'Smartes Licht',
     hint: 'Sage laut:',
     command: '„Licht an"',
     keywords: ['licht', 'lampe', 'hell'],
-    camPos: [0.2, 3.4, 10.5], camLook: [0, 1.3, 0],
+    camPos: [1.5, 3.8, 10.6], camLook: [0, 1.05, -1.0], camDur: 2.4,
     action: () => { state.lightsTarget = 1; },
     physics: {
       title: 'Licht: Strom wird Licht',
@@ -557,7 +602,7 @@ const stations = [
     command: '„Wand blau"',
     keywords: ['wand', 'wände', 'farbe', 'blau', 'rot', 'grün', 'gelb', 'lila', 'türkis', 'pink', 'orange', 'weiß', 'grau'],
     repeatable: true,
-    camPos: [-2.4, 2.0, 6.2], camLook: [-7.6, 1.8, 2.8],
+    camPos: [-1.6, 2.2, 5.6], camLook: [-7.9, 1.7, 2.2],
     action: (transcript) => {
       let picked = null;
       if (transcript) {
@@ -577,7 +622,7 @@ const stations = [
     hint: 'Sage laut:',
     command: '„Herd an"',
     keywords: ['herd', 'koch', 'kochen', 'küche', 'induktion'],
-    camPos: [2.6, 1.9, 7.6], camLook: [6.4, 1.0, 2.6],
+    camPos: [3.0, 1.95, 7.4], camLook: [6.5, 1.05, 2.6],
     action: () => { state.stoveTarget = 1; },
     physics: {
       title: 'Induktionsfeld: Magnetfeld kocht',
@@ -590,7 +635,7 @@ const stations = [
     hint: 'Sage laut:',
     command: '„Wäsche waschen"',
     keywords: ['wäsche', 'waschen', 'roboter', 'maschine'],
-    camPos: [-1.2, 1.9, 3.2], camLook: [-5.8, 0.8, -4.2],
+    camPos: [-1.0, 2.15, -0.4], camLook: [-6.0, 0.7, -4.6],
     action: () => { startWash(); },
     physics: {
       title: 'Roboter & Motor: Strom wird Bewegung',
@@ -603,7 +648,7 @@ const stations = [
     hint: 'Sage laut:',
     command: '„Wärmer"',
     keywords: ['wärmer', 'wärme', 'warm', 'heizung', 'heizen', 'heiß'],
-    camPos: [1.8, 1.8, 2.6], camLook: [5.0, 1.0, -5.4],
+    camPos: [1.3, 2.1, 0.2], camLook: [4.9, 1.0, -5.7],
     action: () => { state.heatTarget = 1; state.tempTarget = 23; },
     physics: {
       title: 'Heizung: Wärme wandert',
@@ -616,7 +661,7 @@ const stations = [
     final: true,
     hint: 'Dein Haus läuft.',
     command: 'Alles hört auf deine Stimme.',
-    camPos: [0.5, 5.5, 14], camLook: [0, 1.2, -0.5],
+    camPos: [3.0, 5.2, 14.5], camLook: [0, 1.1, -1.5],
     physics: {
       title: 'Und die Stimme selbst?',
       text: 'Dein Befehl ist eine Schallwelle — schwankender Luftdruck. Das Mikrofon wandelt diese Druckschwankungen in eine elektrische Spannung um und digitalisiert sie (tausende Messwerte pro Sekunde). Software erkennt darin Muster und macht aus Schall einen Befehl. Physik steckt in jedem Schritt dieses Hauses.',
@@ -632,7 +677,7 @@ function enterStation(i) {
   current = i;
   matchedThisStation = false;
   const s = stations[i];
-  moveCamera(s.camPos, s.camLook, i === 0 ? 2.4 : 1.8);
+  moveCamera(s.camPos, s.camLook, s.camDur ?? (i === 0 ? 2.6 : 1.9));
 
   el.stationLabel.textContent = `Station ${i + 1} / ${stations.length}`;
   el.stationTitle.textContent = s.title;
@@ -678,6 +723,7 @@ function triggerStation(transcript) {
 function restartTour() {
   // Zustand zurücksetzen
   state.lightsTarget = 0; state.stoveTarget = 0; state.heatTarget = 0; state.tempTarget = 19;
+  state.doorTarget = 0;
   wallTarget.set(0xeae6df);
   freeRoam = false;
   enterStation(0);
