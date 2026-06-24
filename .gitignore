@@ -1,0 +1,15 @@
+# OS / Editor-Müll
+.DS_Store
+.AppleDouble
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# Node (falls mal genutzt)
+node_modules/
+
+# Temp
+*.tmp
+*.temp
+*.bak

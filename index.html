@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Smart Home" />
+  <title>Smart Home — Sprich mit deinem Haus</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- Hier rendert das 3D-Haus hinein (von main.js eingehängt) -->
+
+    <!-- Kopfzeile: zeigt an, wo man in der Tour ist -->
+    <header id="hud-top" class="hidden">
+      <div id="station-meta">
+        <span id="station-label">Station 1 / 7</span>
+        <span id="station-title">Willkommen</span>
+      </div>
+      <button id="mic-status" class="mic-chip" type="button" title="Mikrofon-Status">
+        <span class="mic-dot"></span>
+        <span id="mic-text">Mikro aus</span>
+      </button>
+    </header>
+
+    <!-- Kleine Rückmeldung: was das Haus gerade gehört hat -->
+    <div id="heard-toast" class="hidden"></div>
+
+    <!-- Aufgaben-Karte unten: sagt, was man sprechen soll -->
+    <section id="prompt-card" class="hidden">
+      <div id="prompt-hint">Sage laut:</div>
+      <div id="prompt-command">„Licht an"</div>
+      <div id="prompt-sub">… oder tippe den Knopf, falls das Mikro mal nicht will.</div>
+      <div id="prompt-actions">
+        <button id="btn-trigger" class="btn btn-primary" type="button">Per Tipp auslösen</button>
+        <button id="btn-next" class="btn btn-ghost hidden" type="button">Weiter ›</button>
+      </div>
+      <button id="btn-physics" class="physics-toggle" type="button">🔬 Physik dahinter</button>
+    </section>
+
+    <!-- Physik-Erklärung (Presenter blendet sie ein) -->
+    <aside id="physics-panel" class="hidden">
+      <div class="physics-head">
+        <h3 id="physics-title">Physik</h3>
+        <button id="physics-close" class="btn btn-mini" type="button">Schließen</button>
+      </div>
+      <p id="physics-text"></p>
+      <div id="physics-formula" class="physics-formula"></div>
+    </aside>
+
+    <!-- Startbildschirm -->
+    <div id="start-overlay">
+      <div class="start-inner">
+        <div class="start-badge">Physik-Präsentation</div>
+        <h1>Smart&nbsp;Home<br /><span class="accent">Sprich mit deinem Haus</span></h1>
+        <p class="start-lead">
+          Eine geführte Tour durch ein intelligentes Haus. Die Kamera fährt von Raum zu Raum
+          und zeigt dir, <strong>was du sagen sollst</strong>. Sprich das Kommando — und das Haus reagiert.
+        </p>
+        <ul class="start-list">
+          <li>💡 Lichter, die auf deine Stimme hören</li>
+          <li>🎨 Wände, die die Farbe wechseln</li>
+          <li>🍳 Eine smarte Küche mit Induktionsfeld</li>
+          <li>🤖 Ein Roboter, der die Wäsche übernimmt</li>
+          <li>🔥 Heizung, die sich selbst regelt</li>
+        </ul>
+        <button id="btn-start" class="btn btn-start" type="button">▶ Tour starten</button>
+        <p id="start-hint" class="start-foot">
+          Tipp: Auf dem iPad im Querformat halten und einmal die Mikrofon-Frage mit „Erlauben" bestätigen.
+        </p>
+      </div>
+    </div>
+
+    <!-- Ladeanzeige -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <div>Haus wird gebaut …</div>
+    </div>
+
+    <!-- Fehler-/Hinweisbanner -->
+    <div id="notice" class="hidden"></div>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
