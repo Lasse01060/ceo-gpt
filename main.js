@@ -5,6 +5,7 @@
    ============================================================ */
 
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
 
 /* ---------- DOM-Bezüge ---------- */
 const $ = (id) => document.getElementById(id);
@@ -44,21 +45,36 @@ function initThree() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;          // weiche Schatten für mehr Tiefe
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.getElementById('app').appendChild(renderer.domElement);
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x10182b);
-  scene.fog = new THREE.Fog(0x10182b, 22, 46);
+  scene.background = new THREE.Color(0x0f1626);
+  scene.fog = new THREE.Fog(0x0f1626, 26, 52);
 
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
   camera.position.set(3.0, 5.2, 14.5);
 
-  // Grundlicht, damit das Haus auch bei "Licht aus" sichtbar ist
-  scene.add(new THREE.HemisphereLight(0xcdd8ff, 0x202838, 0.85));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
-  const sun = new THREE.DirectionalLight(0xfff2dd, 0.55);
-  sun.position.set(8, 16, 12);
-  scene.add(sun);
+  // Dämmrige Grundbeleuchtung (Abendstimmung) -> "Licht an" wirkt dadurch stark
+  scene.add(new THREE.HemisphereLight(0x9fb4e0, 0x141a2a, 0.42));
+  scene.add(new THREE.AmbientLight(0x2a3550, 0.10));
+
+  // Weiches Schlüssellicht von schräg oben, wirft Schatten
+  const sun = new THREE.DirectionalLight(0xeaf0ff, 0.45);
+  sun.position.set(9, 17, 10);
+  sun.target.position.set(0, 1, 0);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+  sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 60;
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+  scene.add(sun); scene.add(sun.target);
+
+  // Warmes Innenlicht, das bei "Licht an" hochgefahren wird
+  world.interiorFill = new THREE.AmbientLight(0xffe2b0, 0);
+  scene.add(world.interiorFill);
 }
 
 /* ---------- kleine Bau-Helfer ---------- */
@@ -74,13 +90,19 @@ function mat(color, opts = {}) {
     emissiveIntensity: opts.emissiveIntensity ?? 0,
     transparent: !!opts.transparent,
     opacity: opts.opacity ?? 1,
+    side: opts.side ?? THREE.FrontSide,
   });
 }
 
+// Box mit weich abgerundeten Kanten + Schattenwurf (sieht hochwertiger aus)
 function box(w, h, d, color, opts = {}) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, opts));
+  const minDim = Math.min(w, h, d);
+  const r = Math.max(0.012, Math.min(opts.radius ?? 0.05, minDim * 0.45));
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, opts.smooth ?? 2, r), mat(color, opts));
   m.position.set(opts.x ?? 0, opts.y ?? 0, opts.z ?? 0);
   if (opts.ry) m.rotation.y = opts.ry;
+  m.castShadow = opts.cast !== false;
+  m.receiveShadow = opts.receive !== false;
   (opts.parent ?? house).add(m);
   return m;
 }
@@ -127,12 +149,37 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/* ---------- weicher Leucht-Halo (Sprite, für Lampen/Glut) ---------- */
+let GLOW_TEX = null;
+function glowSprite(color, size, opts = {}) {
+  if (!GLOW_TEX) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    const g = cv.getContext('2d');
+    const rad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    rad.addColorStop(0, 'rgba(255,255,255,1)');
+    rad.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+    rad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = rad; g.fillRect(0, 0, 128, 128);
+    GLOW_TEX = new THREE.CanvasTexture(cv);
+    GLOW_TEX.colorSpace = THREE.SRGBColorSpace;
+  }
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: GLOW_TEX, color, transparent: true, opacity: opts.opacity ?? 0,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  sp.scale.set(size, size, 1);
+  sp.position.set(opts.x ?? 0, opts.y ?? 0, opts.z ?? 0);
+  (opts.parent ?? house).add(sp);
+  return sp;
+}
+
 /* ============================================================
    2) Das Haus bauen
    Vorne (+z) ist offen wie ein Puppenhaus, damit die Kamera hineinsieht.
    ============================================================ */
 const world = {
   lamps: [],        // Deckenlampen + Stehlampe (gehen bei "Licht an" an)
+  interiorFill: null,
   door: null,
   featureWall: null,
   stove: null,
@@ -148,11 +195,11 @@ function buildHouse() {
   const ph = 1.3;       // halbe Trennwand-Höhe
 
   // Umliegender Boden + Hausboden
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), mat(0x0e1322, { rough: 1 }));
-  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; house.add(ground);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), mat(0x0c1120, { rough: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true; house.add(ground);
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), mat(0xc9b393, { rough: 0.95 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, 0); house.add(floor);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), mat(0xc8a87a, { rough: 0.9 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, 0); floor.receiveShadow = true; house.add(floor);
 
   // Außenwände: hinten (-z), links (-x), rechts (+x). Vorne offen.
   box(16.2, H, t, 0xe7e2d7, { x: 0, y: H / 2, z: -6 });                 // hinten
@@ -165,6 +212,13 @@ function buildHouse() {
   box(7, ph, t, 0xf0ece2, { x: -4.5, y: ph / 2, z: 0 });  // z=0, links
   box(7, ph, t, 0xf0ece2, { x: 4.5, y: ph / 2, z: 0 });   // z=0, rechts
 
+  // Sockelleisten (Boden-Abschluss an den Außenwänden)
+  box(15.6, 0.12, 0.05, 0xd8d2c4, { x: 0, y: 0.07, z: -5.86, cast: false });
+  box(0.05, 0.12, 11.6, 0xd8d2c4, { x: -7.86, y: 0.07, z: 0, cast: false });
+  box(0.05, 0.12, 11.6, 0xd8d2c4, { x: 7.86, y: 0.07, z: 0, cast: false });
+  // Fenster in der Rückwand (weiches Abendlicht)
+  buildWindow(-2.4); buildWindow(1.2);
+
   buildLivingRoom();
   buildKitchen();
   buildLaundry();
@@ -172,11 +226,12 @@ function buildHouse() {
   buildLamps();
   buildDoor();
 
-  // Raum-Schilder zur Orientierung
-  textSprite('Wohnzimmer', { x: -4, y: 2.9, z: 4.6, scale: 0.9 });
-  textSprite('Küche', { x: 4, y: 2.9, z: 4.6, scale: 0.9 });
-  textSprite('Waschraum', { x: -4, y: 2.9, z: -1.2, scale: 0.9 });
-  textSprite('Klima', { x: 4, y: 2.9, z: -1.2, scale: 0.9 });
+  // Raum-Schilder zur Orientierung (klein & dezent)
+  const lbl = { scale: 0.4, color: '#c2cee8', bg: 'rgba(12,18,32,0.5)' };
+  textSprite('Wohnzimmer', { x: -4, y: 3.25, z: 4.6, ...lbl });
+  textSprite('Küche', { x: 4, y: 3.25, z: 4.6, ...lbl });
+  textSprite('Waschraum', { x: -4, y: 3.25, z: -1.2, ...lbl });
+  textSprite('Klima', { x: 4, y: 3.25, z: -1.2, ...lbl });
 
   scene.add(house);
 }
@@ -195,166 +250,223 @@ function buildDoor() {
   // Türblatt mit Scharnier links (Pivot sitzt auf der Scharnierkante)
   const pivot = new THREE.Group();
   pivot.position.set(-0.85, 1.2, zf);
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.55, 2.2, 0.08), mat(0x6f4a2c, { rough: 0.6 }));
-  panel.position.set(0.78, 0, 0);
-  pivot.add(panel);
+  const panel = new THREE.Mesh(new RoundedBoxGeometry(1.55, 2.2, 0.09, 2, 0.03), mat(0x7a5232, { rough: 0.55 }));
+  panel.position.set(0.78, 0, 0); panel.castShadow = true; pivot.add(panel);
+  const win = new THREE.Mesh(new THREE.CircleGeometry(0.22, 24), mat(0xbfe0ff, { transparent: true, opacity: 0.45, emissive: 0x6a9fd6, emissiveIntensity: 0.35 }));
+  win.position.set(0.78, 0.55, 0.06); pivot.add(win);
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 10), mat(0xf0c75e, { metal: 0.8, rough: 0.3 }));
-  handle.position.set(1.42, 0, 0.09);
+  handle.position.set(1.42, 0, 0.09); handle.castShadow = true;
   pivot.add(handle);
   g.add(pivot);
   house.add(g);
   world.door = { pivot };
 }
 
+/* ---------- Fenster in der Rückwand ---------- */
+function buildWindow(x) {
+  box(1.7, 1.35, 0.08, 0x2a3550, { x, y: 1.95, z: -5.9, radius: 0.04, cast: false });  // Rahmen
+  box(1.45, 1.12, 0.04, 0xacd2ff, { x, y: 1.95, z: -5.86, emissive: 0x5b86c4, emissiveIntensity: 0.7, cast: false, radius: 0.02 }); // Scheibe
+  box(0.05, 1.12, 0.05, 0x2a3550, { x, y: 1.95, z: -5.84, cast: false });              // Sprosse senkrecht
+  box(1.45, 0.05, 0.05, 0x2a3550, { x, y: 1.95, z: -5.84, cast: false });              // Sprosse waagerecht
+}
+
 /* ---------- Wohnzimmer (vorne links) ---------- */
 function buildLivingRoom() {
-  const couch = 0x3c465f;
-  box(3.4, 0.02, 2.4, 0x8390b8, { x: -4.6, y: 0.012, z: 3.4, rough: 1 }); // Teppich
-  box(2.4, 0.45, 1.0, couch, { x: -5.0, y: 0.25, z: 3.5, flat: true });    // Sofa Sitz
-  box(2.4, 0.6, 0.22, couch, { x: -5.0, y: 0.55, z: 3.95, flat: true });   // Lehne
-  box(0.22, 0.5, 1.0, couch, { x: -6.1, y: 0.4, z: 3.5, flat: true });     // Armlehne
-  box(0.22, 0.5, 1.0, couch, { x: -3.9, y: 0.4, z: 3.5, flat: true });
-  box(1.0, 0.3, 0.6, 0x8a6a48, { x: -3.0, y: 0.2, z: 2.8 });               // Couchtisch
-  // Zimmerpflanze
-  box(0.3, 0.3, 0.3, 0xb9743a, { x: -1.6, y: 0.15, z: 5.2 });
-  const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), mat(0x3f9a5b, { flat: true }));
-  leaf.position.set(-1.6, 0.7, 5.2); house.add(leaf);
+  const couch = 0x4a5a78, cushion = 0x5e7099;
+  // Teppich (zwei Lagen für einen Rand)
+  box(3.7, 0.03, 2.7, 0x8b97bd, { x: -4.6, y: 0.015, z: 3.4, radius: 0.02 });
+  box(3.2, 0.05, 2.2, 0xb9c2dd, { x: -4.6, y: 0.035, z: 3.4, radius: 0.02 });
+  // Sofa: Sitz, Lehne, zwei Armlehnen, zwei Sitzkissen, Zierkissen, Füße
+  box(2.6, 0.4, 1.1, couch, { x: -5.0, y: 0.34, z: 3.5, radius: 0.13 });
+  box(2.6, 0.7, 0.26, couch, { x: -5.0, y: 0.62, z: 4.0, radius: 0.13 });
+  box(0.3, 0.55, 1.1, couch, { x: -6.25, y: 0.46, z: 3.5, radius: 0.12 });
+  box(0.3, 0.55, 1.1, couch, { x: -3.75, y: 0.46, z: 3.5, radius: 0.12 });
+  box(0.95, 0.2, 0.9, cushion, { x: -5.55, y: 0.52, z: 3.45, radius: 0.09 });
+  box(0.95, 0.2, 0.9, cushion, { x: -4.5, y: 0.52, z: 3.45, radius: 0.09 });
+  box(0.46, 0.46, 0.16, 0xe0a25e, { x: -5.0, y: 0.66, z: 3.25, radius: 0.12, ry: 0.3 });
+  [[-6.15, 3.05], [-3.85, 3.05], [-6.15, 3.95], [-3.85, 3.95]].forEach(([x, z]) =>
+    box(0.1, 0.16, 0.1, 0x232834, { x, y: 0.08, z, radius: 0.02 }));
+  // Couchtisch mit Beinen + Deko
+  box(1.2, 0.1, 0.7, 0x9c7547, { x: -3.0, y: 0.44, z: 2.7, radius: 0.04 });
+  [[-3.5, 2.45], [-2.5, 2.45], [-3.5, 2.95], [-2.5, 2.95]].forEach(([x, z]) =>
+    box(0.08, 0.4, 0.08, 0x6f5230, { x, y: 0.22, z, radius: 0.02 }));
+  box(0.5, 0.04, 0.3, 0xcfd6e0, { x: -3.0, y: 0.51, z: 2.7, radius: 0.02 });
+  // Zimmerpflanze: Topf + gestapelte Blätter
+  box(0.36, 0.42, 0.36, 0xcf7d44, { x: -1.5, y: 0.21, z: 5.2, radius: 0.1 });
+  for (let i = 0; i < 3; i++) {
+    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42 - i * 0.07, 0), mat([0x3f9a5b, 0x47a866, 0x55bd78][i], { flat: true }));
+    leaf.position.set(-1.5, 0.64 + i * 0.2, 5.2); leaf.castShadow = true; house.add(leaf);
+  }
 }
 
 /* ---------- Küche (vorne rechts) ---------- */
 function buildKitchen() {
-  box(0.9, 0.9, 5.0, 0xeef1f6, { x: 6.9, y: 0.45, z: 3.0 });        // Unterschrank
-  box(0.9, 0.05, 5.0, 0x2b3142, { x: 6.9, y: 0.93, z: 3.0 });        // Arbeitsplatte
-  box(0.9, 0.6, 4.0, 0xe7eaf0, { x: 7.0, y: 2.4, z: 3.0 });          // Oberschränke
-  // Kühlschrank mit Smart-Display
-  box(0.9, 2.0, 0.9, 0xdfe4ec, { x: 7.0, y: 1.0, z: 5.4 });
-  box(0.04, 0.5, 0.3, 0x000000, { x: 6.54, y: 1.4, z: 5.4, emissive: 0x35c9c1, emissiveIntensity: 0.7 });
-
-  // Induktionsfeld + Topf
-  box(0.74, 0.06, 0.74, 0x14181f, { x: 6.4, y: 0.97, z: 2.6 });      // Glasfeld
-  const glow = box(0.55, 0.03, 0.55, 0x3a1a00, { x: 6.4, y: 1.0, z: 2.6, emissive: 0xff5a1e, emissiveIntensity: 0 });
-  const potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.26, 24), mat(0x9aa2ad, { metal: 0.5, rough: 0.4 }));
-  potBody.position.set(6.4, 1.16, 2.6); house.add(potBody);
-  const potLid = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.04, 24), mat(0x6f7782, { metal: 0.5, rough: 0.4 }));
-  potLid.position.set(6.4, 1.31, 2.6); house.add(potLid);
+  // Unterschrank + Arbeitsplatte + Schubladenfronten mit Griffen
+  box(0.95, 0.85, 5.0, 0xeef1f6, { x: 6.95, y: 0.43, z: 3.0, radius: 0.04 });
+  box(1.0, 0.08, 5.0, 0x2b3142, { x: 6.95, y: 0.9, z: 3.0, radius: 0.03 });
+  for (let i = 0; i < 3; i++) {
+    const z = 1.4 + i * 1.5;
+    box(0.04, 0.7, 1.35, 0xe2e6ee, { x: 6.46, y: 0.46, z, cast: false });
+    box(0.05, 0.05, 0.45, 0x9aa2b0, { x: 6.41, y: 0.62, z, metal: 0.7, rough: 0.3 });
+  }
+  // Spritzschutz + Oberschränke mit Griffen
+  box(0.05, 0.75, 5.0, 0xdce6ee, { x: 7.47, y: 1.4, z: 3.0, cast: false });
+  box(0.95, 0.65, 4.0, 0xe7eaf0, { x: 7.0, y: 2.35, z: 3.0, radius: 0.04 });
+  box(0.05, 0.05, 1.2, 0x9aa2b0, { x: 6.5, y: 2.04, z: 2.3, metal: 0.7, rough: 0.3 });
+  box(0.05, 0.05, 1.2, 0x9aa2b0, { x: 6.5, y: 2.04, z: 3.7, metal: 0.7, rough: 0.3 });
+  // Kühlschrank: Türfuge + Griff + Smart-Display
+  box(0.95, 2.0, 0.95, 0xdfe4ec, { x: 7.0, y: 1.0, z: 5.4, radius: 0.05 });
+  box(0.04, 0.04, 0.95, 0xcdd3dd, { x: 6.52, y: 1.2, z: 5.4, cast: false });
+  box(0.04, 1.3, 0.05, 0x9aa2b0, { x: 6.5, y: 1.0, z: 5.02, metal: 0.7, rough: 0.3 });
+  box(0.03, 0.45, 0.28, 0x0b0e14, { x: 6.53, y: 1.55, z: 5.6, emissive: 0x35c9c1, emissiveIntensity: 0.7, cast: false });
+  // Spüle + Wasserhahn
+  box(0.5, 0.05, 0.5, 0x8a93a3, { x: 6.95, y: 0.92, z: 4.55, metal: 0.6, rough: 0.3, cast: false });
+  const tap = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.32, 12), mat(0x9aa2b0, { metal: 0.8, rough: 0.25 }));
+  tap.position.set(7.12, 1.08, 4.55); tap.castShadow = true; house.add(tap);
+  // Induktionsfeld (Glas) + zwei Kochzonen-Ringe + Topf
+  box(0.78, 0.06, 0.78, 0x14181f, { x: 6.4, y: 0.96, z: 2.6, radius: 0.03 });
+  const glow = box(0.5, 0.025, 0.5, 0x3a1a00, { x: 6.4, y: 0.99, z: 2.6, emissive: 0xff5a1e, emissiveIntensity: 0, radius: 0.02, cast: false });
+  [[-0.15, 2.43], [0.15, 2.78]].forEach(([dx, zz]) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.012, 8, 24), mat(0x2e3640));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(6.4 + dx, 0.995, zz); house.add(ring);
+  });
+  const potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.26, 28), mat(0x9aa2ad, { metal: 0.6, rough: 0.35 }));
+  potBody.position.set(6.4, 1.16, 2.6); potBody.castShadow = true; house.add(potBody);
+  const potLid = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.04, 28), mat(0x6f7782, { metal: 0.6, rough: 0.35 }));
+  potLid.position.set(6.4, 1.31, 2.6); potLid.castShadow = true; house.add(potLid);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), mat(0x2b3142));
+  knob.position.set(6.4, 1.35, 2.6); house.add(knob);
 
   const light = new THREE.PointLight(0xff6a2a, 0, 6, 2);
   light.position.set(6.4, 1.3, 2.6); house.add(light);
+  const halo = glowSprite(0xff7a2a, 1.3, { x: 6.4, y: 1.12, z: 2.6 });
 
-  world.stove = { glow, light, potBody, potLid, baseY: 1.16 };
+  world.stove = { glow, light, halo, potBody, potLid, baseY: 1.16 };
 }
 
 /* ---------- Waschraum (hinten links) ---------- */
 function buildLaundry() {
-  // Waschmaschine, Front zeigt nach +z
   const wz = -4.6;
-  box(1.0, 1.0, 0.9, 0xe9edf3, { x: -6.6, y: 0.5, z: wz });               // Korpus
-  box(0.8, 0.18, 0.06, 0x222838, { x: -6.6, y: 0.85, z: wz + 0.46, emissive: 0x5b8cff, emissiveIntensity: 0.6 }); // Bedienpanel
-  // Tür: Ring + Glas + Trommel
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.05, 12, 28), mat(0x3a4154, { metal: 0.4 }));
-  ring.position.set(-6.6, 0.45, wz + 0.46); house.add(ring);
-  const glass = new THREE.Mesh(new THREE.CircleGeometry(0.26, 28), mat(0x9fc8ff, { transparent: true, opacity: 0.35, rough: 0.1 }));
-  glass.position.set(-6.6, 0.45, wz + 0.49); house.add(glass);
-  // Trommel: dreht sich um z-Achse
+  // Korpus (abgerundet) + Waschmittelschublade + Bedienpanel + Drehknopf
+  box(1.05, 1.05, 0.95, 0xeef2f8, { x: -6.6, y: 0.53, z: wz, radius: 0.08 });
+  box(0.5, 0.12, 0.05, 0xcfd6e0, { x: -6.6, y: 0.93, z: wz + 0.49, cast: false });
+  box(0.85, 0.16, 0.04, 0x222838, { x: -6.6, y: 0.73, z: wz + 0.49, emissive: 0x5b8cff, emissiveIntensity: 0.7, cast: false });
+  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 16), mat(0xc7cdd8, { metal: 0.6, rough: 0.3 }));
+  knob.rotation.x = Math.PI / 2; knob.position.set(-6.22, 0.73, wz + 0.5); house.add(knob);
+  // Bullaugentür: Chromring + Glas + drehbare Trommel mit Wäsche
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06, 14, 30), mat(0xc7cdd8, { metal: 0.8, rough: 0.25 }));
+  ring.position.set(-6.6, 0.42, wz + 0.49); house.add(ring);
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(0.28, 30), mat(0x9fc8ff, { transparent: true, opacity: 0.3, rough: 0.05 }));
+  glass.position.set(-6.6, 0.42, wz + 0.52); house.add(glass);
   const drum = new THREE.Group();
-  drum.position.set(-6.6, 0.45, wz + 0.44);
-  const drumBack = new THREE.Mesh(new THREE.CircleGeometry(0.25, 24), mat(0x20242f));
-  drumBack.position.z = -0.06; drum.add(drumBack);
-  // Wäschestücke in der Trommel
-  [0xff6b6b, 0xffd166, 0x6ad1ff, 0x7af2c9].forEach((c, i) => {
-    const a = (i / 4) * Math.PI * 2;
-    const cl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 0), mat(c, { flat: true }));
-    cl.position.set(Math.cos(a) * 0.13, Math.sin(a) * 0.13, 0);
-    drum.add(cl);
+  drum.position.set(-6.6, 0.42, wz + 0.46);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.34, 26, 1, true), mat(0xb9c2d2, { metal: 0.5, rough: 0.4, side: THREE.DoubleSide }));
+  tube.rotation.x = Math.PI / 2; tube.position.z = -0.18; drum.add(tube);
+  [0xff6b6b, 0xffd166, 0x6ad1ff, 0x7af2c9, 0xc78bff].forEach((c, i) => {
+    const a = (i / 5) * Math.PI * 2;
+    const cl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.075, 0), mat(c, { flat: true }));
+    cl.position.set(Math.cos(a) * 0.14, Math.sin(a) * 0.14, -0.05); cl.castShadow = true; drum.add(cl);
   });
   house.add(drum);
+  const glow = new THREE.PointLight(0x6aa0ff, 0, 5, 2);
+  glow.position.set(-6.6, 0.55, wz + 0.7); house.add(glow);
+  // Regal mit Körben + Wäschekorb
+  box(1.15, 0.06, 0.5, 0xb7956a, { x: -6.7, y: 1.7, z: -5.6, radius: 0.02 });
+  box(0.46, 0.3, 0.36, 0xe0a25e, { x: -6.95, y: 1.9, z: -5.6, radius: 0.06 });
+  box(0.46, 0.3, 0.36, 0x6aa0d0, { x: -6.42, y: 1.9, z: -5.6, radius: 0.06 });
+  box(0.54, 0.4, 0.44, 0xcaa06f, { x: -3.0, y: 0.2, z: -4.6, radius: 0.06 });
+  box(0.42, 0.22, 0.32, 0xff9aa2, { x: -3.0, y: 0.45, z: -4.6, radius: 0.1 });
 
-  const glow = new THREE.PointLight(0x5b8cff, 0, 5, 2);
-  glow.position.set(-6.6, 0.6, wz + 0.6); house.add(glow);
-
-  // Wäschekorb
-  box(0.5, 0.35, 0.4, 0xb9956a, { x: -3.0, y: 0.18, z: -4.6 });
-
-  world.washer = { drum, glow, frontZ: wz + 0.46 };
-
+  world.washer = { drum, glow, frontZ: wz + 0.49 };
   buildRobot();
 }
 
 /* ---------- Wäsche-Roboter ---------- */
 function buildRobot() {
   const g = new THREE.Group();
-  // Basis + Räder
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.12, 20), mat(0x2b3142, { flat: true }));
-  base.position.y = 0.08; g.add(base);
-  // Körper
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.42), mat(0xeef1f6, { flat: true }));
-  body.position.y = 0.42; g.add(body);
-  // "Bauch"-Anzeige
-  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.02), mat(0x000000, { emissive: 0x7af2c9, emissiveIntensity: 0.8 }));
-  belly.position.set(0, 0.42, 0.22); g.add(belly);
-  // Kopf
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.34), mat(0x5b8cff, { flat: true }));
-  head.position.y = 0.78; g.add(head);
-  // Augen
-  [-0.1, 0.1].forEach((dx) => {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), mat(0x0d1018, { emissive: 0xffffff, emissiveIntensity: 0.5 }));
-    eye.position.set(dx, 0.8, 0.18); g.add(eye);
+  // Fahrgestell + zwei Räder
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.14, 24), mat(0x2b3142, { metal: 0.3, rough: 0.5 }));
+  base.position.y = 0.1; base.castShadow = true; g.add(base);
+  [-0.3, 0.3].forEach((dx) => {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 16), mat(0x12151c, { rough: 0.6 }));
+    wheel.rotation.z = Math.PI / 2; wheel.position.set(dx, 0.1, 0); g.add(wheel);
   });
-  // Arme
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.34, 0.08), mat(0xcdd4e0, { flat: true }));
-  armL.position.set(-0.31, 0.42, 0); g.add(armL);
-  const armR = armL.clone(); armR.position.x = 0.31; g.add(armR);
+  // Körper (abgerundet) + Gesichts-Display + leuchtende Augen
+  box(0.56, 0.56, 0.46, 0xf2f5fb, { x: 0, y: 0.46, z: 0, radius: 0.16, parent: g });
+  box(0.42, 0.3, 0.04, 0x0b0e16, { x: 0, y: 0.52, z: 0.23, radius: 0.06, parent: g, cast: false });
+  [-0.09, 0.09].forEach((dx) => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 14), mat(0x0d1018, { emissive: 0x7af2c9, emissiveIntensity: 1.0 }));
+    eye.position.set(dx, 0.55, 0.255); g.add(eye);
+  });
+  // Antenne mit leuchtender Spitze
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 8), mat(0x9aa2b0, { metal: 0.6 }));
+  ant.position.set(0, 0.82, 0); g.add(ant);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), mat(0xff6b6b, { emissive: 0xff6b6b, emissiveIntensity: 0.9 }));
+  tip.position.set(0, 0.92, 0); g.add(tip);
+  // Arme (drehen sich beim Waschen)
+  const armL = box(0.09, 0.36, 0.09, 0xd3dae6, { x: -0.34, y: 0.46, z: 0, radius: 0.04, parent: g });
+  const armR = box(0.09, 0.36, 0.09, 0xd3dae6, { x: 0.34, y: 0.46, z: 0, radius: 0.04, parent: g });
 
   const dock = new THREE.Vector3(-2.3, 0, -2.2);
-  g.position.copy(dock);
-  house.add(g);
-
-  world.robot = {
-    group: g, armL, armR,
-    dock,
-    workPos: new THREE.Vector3(-5.3, 0, world.washer.frontZ - 0.2),
-    state: 'idle', t: 0,
-  };
+  g.position.copy(dock); house.add(g);
+  world.robot = { group: g, armL, armR, dock, workPos: new THREE.Vector3(-5.3, 0, world.washer.frontZ - 0.2), state: 'idle', t: 0 };
 }
 
 /* ---------- Heizung / Klima (hinten rechts) ---------- */
 function buildHeating() {
   const rad = new THREE.Group();
-  const bodyMat = mat(0xf2f4f8, { emissive: 0xff3b1e, emissiveIntensity: 0 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.12), bodyMat);
-  rad.add(body);
-  // Rippen
-  for (let i = -3; i <= 3; i++) {
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.86, 0.16), bodyMat);
-    fin.position.x = i * 0.22; rad.add(fin);
+  const bodyMat = mat(0xf4f6fa, { emissive: 0xff3b1e, emissiveIntensity: 0, rough: 0.5, metal: 0.1 });
+  // Rippen als Rohre + obere/untere Sammelrohre + Ventilknauf
+  for (let i = -4; i <= 4; i++) {
+    const fin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.86, 12), bodyMat);
+    fin.position.x = i * 0.18; fin.castShadow = true; rad.add(fin);
   }
-  rad.position.set(4.6, 0.6, -5.78); house.add(rad);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.72, 12), bodyMat);
+  top.rotation.z = Math.PI / 2; top.position.y = 0.42; rad.add(top);
+  const bot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.72, 12), bodyMat);
+  bot.rotation.z = Math.PI / 2; bot.position.y = -0.42; rad.add(bot);
+  const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.1, 12), mat(0xc7cdd8, { metal: 0.7, rough: 0.3 }));
+  valve.rotation.z = Math.PI / 2; valve.position.set(-0.9, -0.3, 0); rad.add(valve);
+  rad.position.set(4.6, 0.62, -5.74); house.add(rad);
 
   const light = new THREE.PointLight(0xff5a2a, 0, 6, 2);
-  light.position.set(4.6, 0.9, -5.4); house.add(light);
+  light.position.set(4.6, 0.7, -5.4); house.add(light);
+  const halo = glowSprite(0xff5a2a, 2.0, { x: 4.6, y: 0.7, z: -5.5 });
 
   // Thermostat-Panel + Temperatur-Schild
-  box(0.5, 0.7, 0.06, 0x10141d, { x: 6.2, y: 1.5, z: -5.86, emissive: 0x5b8cff, emissiveIntensity: 0.4 });
-  world.tempSprite = textSprite('19°C', { x: 6.2, y: 1.5, z: -5.78, scale: 0.7, color: '#d7fff1', bg: 'rgba(8,17,30,0.0)' });
+  box(0.55, 0.75, 0.07, 0x10141d, { x: 6.2, y: 1.5, z: -5.86, radius: 0.06 });
+  box(0.42, 0.55, 0.03, 0x0a1f2e, { x: 6.2, y: 1.55, z: -5.82, emissive: 0x0a2738, emissiveIntensity: 0.5, cast: false });
+  world.tempSprite = textSprite('19°C', { x: 6.2, y: 1.55, z: -5.79, scale: 0.55, color: '#d7fff1', bg: 'rgba(8,17,30,0.0)' });
 
-  world.radiator = { mat: bodyMat, light };
+  world.radiator = { mat: bodyMat, light, halo };
 }
 
 /* ---------- Lampen (Decke + Stehlampe) ---------- */
 function buildLamps() {
   const spots = [[-4, 3], [4, 3], [-4, -3], [4, -3]];
   spots.forEach(([x, z]) => {
-    const shade = box(0.5, 0.12, 0.5, 0xffffff, { x, y: 3.25, z, emissive: 0xffd9a0, emissiveIntensity: 0 });
-    const light = new THREE.PointLight(0xffe2b0, 0, 11, 2);
-    light.position.set(x, 3.1, z); house.add(light);
-    world.lamps.push({ light, shade, max: 0.9 });
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6), mat(0x2a2f3a));
+    cord.position.set(x, 3.25, z); house.add(cord);
+    const shadeCone = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.32, 0.3, 24, 1, true), mat(0xf3f5fa, { emissive: 0xffd9a0, emissiveIntensity: 0, side: THREE.DoubleSide, rough: 0.6 }));
+    shadeCone.position.set(x, 2.9, z); house.add(shadeCone);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 14), mat(0x3a2e18, { emissive: 0xffcaa0, emissiveIntensity: 0 }));
+    bulb.position.set(x, 2.82, z); house.add(bulb);
+    const light = new THREE.PointLight(0xffe2b0, 0, 12, 2);
+    light.position.set(x, 2.75, z); house.add(light);
+    const halo = glowSprite(0xffdca8, 1.5, { x, y: 2.85, z });
+    world.lamps.push({ light, shade: bulb, halo, max: 1.5 });
   });
   // Stehlampe im Wohnzimmer
-  box(0.05, 1.4, 0.05, 0x55617a, { x: -7.0, y: 0.7, z: 1.6 });
-  const shade = box(0.3, 0.3, 0.3, 0xfff3da, { x: -7.0, y: 1.55, z: 1.6, emissive: 0xffd9a0, emissiveIntensity: 0 });
+  box(0.06, 1.4, 0.06, 0x55617a, { x: -7.0, y: 0.7, z: 1.6, radius: 0.03 });
+  box(0.36, 0.05, 0.36, 0x55617a, { x: -7.0, y: 0.03, z: 1.6 });
+  const shadeCone = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 0.32, 20, 1, true), mat(0xfff3da, { emissive: 0xffd9a0, emissiveIntensity: 0, side: THREE.DoubleSide }));
+  shadeCone.position.set(-7.0, 1.55, 1.6); house.add(shadeCone);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), mat(0x3a2e18, { emissive: 0xffcaa0, emissiveIntensity: 0 }));
+  bulb.position.set(-7.0, 1.5, 1.6); house.add(bulb);
   const lamp = new THREE.PointLight(0xffe2b0, 0, 9, 2);
-  lamp.position.set(-7.0, 1.55, 1.6); house.add(lamp);
-  world.lamps.push({ light: lamp, shade, max: 0.8 });
+  lamp.position.set(-7.0, 1.5, 1.6); house.add(lamp);
+  const halo = glowSprite(0xffdca8, 1.2, { x: -7.0, y: 1.55, z: 1.6 });
+  world.lamps.push({ light: lamp, shade: bulb, halo, max: 1.2 });
 }
 
 /* ============================================================
@@ -376,7 +488,7 @@ function initPuffs() {
   const geo = new THREE.SphereGeometry(0.06, 8, 8);
   for (let i = 0; i < 26; i++) {
     const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0 }));
-    m.visible = false; house.add(m);
+    m.visible = false; m.castShadow = false; m.receiveShadow = false; house.add(m);
     puffs.push({ mesh: m, life: 0, max: 1, vy: 0 });
   }
 }
@@ -416,8 +528,10 @@ function updateWorld(dt, time) {
   state.lights = damp(state.lights, state.lightsTarget, 4, dt);
   for (const l of world.lamps) {
     l.light.intensity = state.lights * l.max;
-    l.shade.material.emissiveIntensity = state.lights * 1.1;
+    l.shade.material.emissiveIntensity = state.lights * 1.8;
+    if (l.halo) l.halo.material.opacity = state.lights * 0.6;
   }
+  if (world.interiorFill) world.interiorFill.intensity = state.lights * 0.5;
 
   // Farbwand
   wallCur.lerp(wallTarget, 1 - Math.exp(-5 * dt));
@@ -430,6 +544,7 @@ function updateWorld(dt, time) {
   const flicker = 0.85 + Math.sin(time * 9) * 0.15;
   world.stove.glow.material.emissiveIntensity = state.stove * 1.4 * flicker;
   world.stove.light.intensity = state.stove * 1.2;
+  if (world.stove.halo) world.stove.halo.material.opacity = state.stove * 0.75 * flicker;
   world.stove.potBody.position.y = world.stove.baseY + Math.sin(time * 7) * 0.012 * state.stove;
   if (state.stove > 0.5) {
     puffTimer -= dt;
@@ -440,6 +555,7 @@ function updateWorld(dt, time) {
   state.heat = damp(state.heat, state.heatTarget, 2.5, dt);
   world.radiator.mat.emissiveIntensity = state.heat * 0.9;
   world.radiator.light.intensity = state.heat * 1.1;
+  if (world.radiator.halo) world.radiator.halo.material.opacity = state.heat * 0.7;
   state.temp = damp(state.temp, state.tempTarget, 1.2, dt);
   if (world.tempSprite) {
     const txt = `${state.temp.toFixed(1)}°C`;
