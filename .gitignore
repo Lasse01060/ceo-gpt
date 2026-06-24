@@ -1,68 +1,15 @@
-# ============================================================
-# CEO-GPT Arbeitsplatz, .gitignore
-# Dateien und Ordner, die nie zu Git wandern sollen.
-# Schützt deine Secrets, verhindert Bloat und hält das Repo sauber.
-# ============================================================
-
-# --- Credentials (kritisch, niemals committen) ---
-.env
-.env.*
-!.env.example
-credentials/
-*.pem
-*.key
-credentials.json
-service-account*.json
-google-credentials*.json
-
-# --- Persönliche Daten und Importe ---
-# Was du in context/import/ reinwirfst, bleibt lokal.
-context/import/*
-!context/import/.gitkeep
-
-# --- Ergebnisse und Zwischenstände ---
-# Optional. Wenn du outputs/ doch mit hochladen willst, diese Zeile rausnehmen.
-outputs/
-shares/
-
-# --- Daten (werden generiert, reproduzierbar aus Sammel-Scripts) ---
-data/*.db
-data/*.db-journal
-data/*.db-shm
-data/*.db-wal
-data/*.log
-
-# --- Python ---
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-*.egg-info/
-
-# --- Node (falls genutzt) ---
-node_modules/
-
-# --- macOS ---
+# OS / Editor-Müll
 .DS_Store
 .AppleDouble
-.LSOverride
-
-# --- Windows ---
 Thumbs.db
 desktop.ini
-
-# --- IDE ---
-.vscode/
-.idea/
 *.swp
 *~
 
-# --- Temp-Dateien ---
+# Node (falls mal genutzt)
+node_modules/
+
+# Temp
 *.tmp
 *.temp
 *.bak
-
-# --- Logs ---
-*.log
-logs/

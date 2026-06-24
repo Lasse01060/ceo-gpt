@@ -1,71 +1,98 @@
-# CEO-GPT Starter-Ordner
+# 🏠 Smart Home — Sprich mit deinem Haus
 
-> *"Hi, schön dass du da bist.*
->
-> *Ich bin dein bester Mitarbeiter. Wir fangen jetzt an, alles aufzubauen. Aktuell bin ich noch eine leere Vorlage.*
->
-> *Mein Gehirn leer.*
-> *Meine Stimme stumm.*
-> *Meine Hände untätig.*
->
-> *Lass uns das ändern."*
+Ein begehbares 3D-Smart-Home für deine **Physik-Präsentation**. Die Kamera fährt
+wie in einem Tutorial von Raum zu Raum und zeigt dir, **was du sagen sollst**.
+Sprich das Kommando — und das Haus reagiert: Lichter gehen an, Wände wechseln die
+Farbe, das Induktionsfeld glüht, ein Roboter wäscht die Wäsche, die Heizung regelt
+sich selbst. Zu jeder Station gibt es eine kurze **Physik-Erklärung**.
+
+Läuft komplett im Browser (Safari auf dem iPad). Keine App, keine Installation.
+
+> Dieses Repo enthält **nur das Spiel** — die Dateien liegen direkt in der Wurzel
+> (`index.html`, `style.css`, `main.js`, `vendor/`).
 
 ---
 
-> Die Vorlage, mit der du deinen eigenen Mitarbeiter aufbaust.
+## 📱 So bringst du es auf das iPad (mit Stimme)
 
-Das hier ist dein Startpunkt. Eine leere, aber sauber strukturierte Werkstatt, in der du Schritt für Schritt deinen eigenen Mitarbeiter aufbaust. Du beschreibst, dein Mitarbeiter setzt um.
+Damit das **Mikrofon** funktioniert, muss die Seite über eine sichere Internet-Adresse
+(`https://`) laufen — eine Datei direkt zu öffnen reicht nicht (Apple-Regel).
 
-## Was du damit kriegst
+### Weg A — Netlify (Repo bleibt privat) · alles vom iPad aus
+1. In **Safari** dein GitHub-Repo öffnen, oben auf den **Branch** `claude/kind-bardeen-in67p5` wechseln.
+2. Grüner **„Code"**-Knopf → **„Download ZIP"** (ggf. vorher „aA → Desktop-Website anfordern").
+3. **Dateien-App** → die `.zip` antippen, sie entpackt sich zu einem Ordner (darin liegt `index.html` ganz oben).
+4. **[app.netlify.com/drop](https://app.netlify.com/drop)** öffnen und den **entpackten Ordner** ins Feld ziehen
+   (am iPad per Split View: Safari + Dateien nebeneinander).
+5. Du bekommst eine `https://…netlify.app`-Adresse → auf dem iPad öffnen, beim Mikro **„Erlauben"** tippen.
 
-- **Einen CEO-GPT, den dein Mitarbeiter versteht.** Klare Struktur, klare Regeln, klare Befehle.
-- **Eine Anleitung an deinen Mitarbeiter.** `CLAUDE.md` sagt ihm, wer du bist und wie er sich verhalten soll. Bei jeder Sitzung.
-- **Sechs Grundbefehle.** Sitzung starten, neue Fähigkeiten dazuholen, planen, ausführen, teilen, Aufgaben kartieren.
-- **Vorlagen für deinen Kontext.** Vier leere Dateien, die du gemeinsam mit deinem Mitarbeiter füllst.
+### Weg B — GitHub Pages (schnellster Link, Repo muss öffentlich sein)
+1. Auf GitHub: **Settings → Pages**.
+2. *Source* = **„Deploy from a branch"**, Branch `claude/kind-bardeen-in67p5`, Ordner **`/ (root)`**, **Save**.
+3. Nach 1–2 Minuten: **`https://lasse01060.github.io/ceo-gpt/`** im Safari öffnen.
 
-## Was du brauchst
+> Hinweis zu Weg B: Bei einem **kostenlosen** GitHub-Konto muss das Repo dafür **öffentlich** sein.
+> Diese Version enthält nur das Spiel, aber deine früheren Notizen sind in der
+> Versionsgeschichte / im `main`-Branch noch vorhanden. Wenn dir volle Privatsphäre
+> wichtig ist, nimm **Weg A** — oder sag Bescheid, dann räume ich auch die Historie auf.
 
-- Einen Computer (Mac, Linux oder Windows)
-- Claude Code installiert
-- Eine halbe Stunde für den ersten Setup
+---
 
-## Wie du startest
+## 🗣️ Die Sprachbefehle
 
-1. Entpack das ZIP an einen Ort, der dir gefällt
-2. Öffne den Ordner in Claude Code
-3. Sag deinem Mitarbeiter: "Lies CLAUDE.md und dann lauf `/install module-installs/absicherung`"
-4. Folg dem Interview. Dein Mitarbeiter führt dich durch.
+| Station | Sag laut … | Was passiert |
+|---|---|---|
+| 1 · Licht | **„Licht an"** | Alle Lampen gehen an |
+| 2 · Wände | **„Wand blau"** (oder rot, grün, gelb, lila, türkis, pink …) | Die Wand wechselt die Farbe |
+| 3 · Küche | **„Herd an"** | Induktionsfeld glüht, Topf dampft |
+| 4 · Wäsche | **„Wäsche waschen"** | Der Roboter fährt los, die Trommel dreht |
+| 5 · Heizung | **„Wärmer"** | Heizkörper glüht, Temperatur steigt |
+| 6 · Finale | — | Frei umsehen (Wischen / zwei Finger zum Zoomen) |
 
-Wenn die Absicherung steht, lauf direkt `/install module-installs/kontext`. Damit bekommt dein Mitarbeiter sein Gehirn. Danach `/prime`, und dein Mitarbeiter kennt dein Business.
+Es zählt das **Stichwort** — du musst nicht exakt sprechen. „Mach das Licht an" reicht auch.
 
-## Wie es weitergeht
+---
 
-Nach dem ersten Setup steht die Basis und dein Mitarbeiter hat sein Gehirn. Danach baust du Stück für Stück weiter aus. Die Reihenfolge ist:
+## 🎤 Wenn das Mikro mal nicht will (Sicherheitsnetz)
 
-1. **Absicherung** (Die Basis): Versionskontrolle, Backup, Doku
-2. **Kontext** (Das Gehirn, Teil 1): dein Business in vier Dateien
-3. **Daten** (Das Gehirn, Teil 2): deine Zahlen aus Stripe, YouTube und Co.
-4. **Intelligenz** (Das Gehirn, Teil 3): Meetings und Team-Chats mithören, damit dein Mitarbeiter alles nachschlagen kann
-5. **Stimme**: Telegram-Bot, Sprachnachrichten
-6. **Automatisierung** (Die Hand, Teil 1): wiederkehrende Aufgaben weg
-7. **Wachstum** (Die Hand, Teil 2): neue Hebel finden und bauen
+Kein Stress — **jede Station hat einen Knopf „Per Tipp auslösen"**. Damit läuft die
+ganze Präsentation auch komplett ohne Stimme. Sie fällt nie aus.
 
-Jeder Schritt ist für sich nützlich, und sie bauen aufeinander auf.
+Falls die Stimme nicht reagiert:
+- Läuft die Seite über `https://`? (siehe oben) — sonst ist das Mikro gesperrt.
+- Beim ersten Start auf **„Erlauben"** getippt?
+- iPad: **Einstellungen → Safari → Mikrofon → Erlauben**, und
+  **Einstellungen → Allgemein → Tastatur → Diktierfunktion** aktiviert.
+- Oben rechts auf das **Mikro-Symbol** tippen schaltet das Zuhören an/aus.
 
-## Wo was liegt
+---
 
-| Datei oder Ordner | Wozu |
-|---|---|
-| `CLAUDE.md` | Anleitung für deinen Mitarbeiter, wird jede Sitzung geladen |
-| `.claude/commands/` | Die sechs Grundbefehle |
-| `context/` | Wer du bist, was dein Business macht, was du gerade willst |
-| `module-installs/` | Fähigkeiten zum Einrichten |
-| `plans/` | Pläne aus `/create-plan` |
-| `outputs/` | Fertige Arbeit und Reports |
-| `reference/` | Vorlagen und wiederverwendbare Muster |
-| `scripts/` | Automatisierungs-Skripte, kommen mit neuen Fähigkeiten dazu |
-| `shares/` | Verpackte Systeme zum Weitergeben |
+## 🔬 Physik-Spickzettel (deine Redepunkte)
 
-## Laufende Kosten
+Im Spiel auf **„🔬 Physik dahinter"** tippen — hier zum Vorbereiten:
 
-Der Starter-Ordner selbst kostet nichts. API-Keys kommen erst rein, wenn du Fähigkeiten dazuholst, die externe Dienste nutzen. Jede Fähigkeit sagt dir, was sie braucht.
+- **Licht (LED):** Strom → Elektronen fallen auf ein tieferes Energieniveau → geben ein
+  Lichtteilchen (Photon) ab. *E = h · f*. Kaum Wärmeverlust → sehr effizient.
+- **Farbe (Wände):** Licht ist eine elektromagnetische Welle. Farbe = Wellenlänge
+  (rot ≈ 700 nm, blau ≈ 450 nm). RGB-LEDs mischen additiv jede Farbe. *c = λ · f*.
+- **Induktionsfeld:** Wechselndes Magnetfeld → Wirbelströme im Topfboden → Widerstand
+  erzeugt Wärme. Der Topf heizt sich selbst. *U = −N · dΦ/dt* (Faraday).
+- **Roboter & Motor:** Elektromotor — stromdurchflossener Leiter im Magnetfeld erfährt
+  eine Kraft. Strom → Bewegung. *F = B · I · L* (Lorentzkraft).
+- **Heizung:** Wärmeübertragung per Leitung, Konvektion (warme Luft steigt) und
+  Strahlung (Infrarot). *Q = m · c · ΔT*.
+- **Die Stimme selbst:** Schallwelle (Luftdruck) → Mikrofon macht daraus Spannung →
+  Digitalisierung → Software erkennt das Muster → Befehl.
+
+---
+
+## 🛠️ Technisches (für Neugierige)
+
+- **3D-Engine:** [Three.js](https://threejs.org) r160 — liegt fertig in `vendor/`, lädt also
+  **ohne externen Server** (gut, falls das Schul-WLAN CDNs blockt).
+- **Stimme:** Web Speech API (`SpeechRecognition`, Sprache `de-DE`), läuft in Safari/Chrome.
+- **Dateien:** `index.html` (Aufbau), `style.css` (Aussehen), `main.js` (3D-Welt + Tour +
+  Sprache), `vendor/three.module.js` (3D-Engine).
+- Alles aus einfachen Formen gebaut (keine schweren 3D-Dateien) → läuft flüssig auf dem iPad.
+
+Viel Erfolg bei der Präsentation! 🎉
